@@ -862,9 +862,9 @@ export default function AuthInputs() {
 
 
 ---
-### Tailwind CSS Notes
+### Tailwind CSS 
 
-**Overview**  
+**what is Tailwind CSS?**  
 Tailwind CSS is a utility-first CSS framework that simplifies styling by using predefined utility classes, eliminating the need to write traditional CSS rules.
 
 **Installation**  
