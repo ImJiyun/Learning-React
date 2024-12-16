@@ -1,1 +1,1 @@
-This is a repository for practicing React.js. The course is from [The Complete JavaScript Course 2025: From Zero to Expert!](https://www.udemy.com/course/the-complete-javascript-course/?couponCode=KEEPLEARNING)
+This is a repository for practicing React.js. The course is from [React - The Complete Guide 2024 (incl. Next.js, Redux)](https://www.udemy.com/course/react-the-complete-guide-incl-redux/?couponCode=ST21MT121624)
