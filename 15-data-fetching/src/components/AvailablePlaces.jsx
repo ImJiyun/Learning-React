@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Places from './Places.jsx';
 import ErrorPage from './Error.jsx';
+import {sortPlacesByDistance} from "../loc.js";
+import { fetchAvailablePlaces } from "../http.js";
 
 export default function AvailablePlaces({ onSelectPlace }) {
   // loading state
@@ -17,23 +19,19 @@ export default function AvailablePlaces({ onSelectPlace }) {
     async function fetchPlaces() {
       setIsFetching(true);
       try {
-        // fetch function itself throws an error if the request fails
-        // so it need to be wrapped in try-catch block
-        const respone = await fetch("http://localhost:3000/placesee");
-        const resData = await respone.json();
-
-        // handling errors
-        if (!respone.ok) { // 400, 500 status codes
-          throw new Error(resData.message || "Failed to fetch places.");
-          // throwing error will stop the execution of the function
-        }
-        setAvailablePlaces(resData.places);
+        
+        const places = await fetchAvailablePlaces();
+        // transform the places data
+        navigator.geolocation.getCurrentPosition((position) => {
+          const sortedPlaces = sortPlacesByDistance(places, position.coords.latitude, position.coords.longitude);
+          setAvailablePlaces(sortedPlaces);
+          setIsFetching(false);
+          
+        });
       } catch (error) {
         setError({message: error.message || "Could not fetch places, please try again later"});
+        setIsFetching(false);
       }
-      // even if an error occurs, we still want to set isFetching to false
-      setIsFetching(false);
-
     }
     fetchPlaces();
   }, []);
