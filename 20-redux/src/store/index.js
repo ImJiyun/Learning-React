@@ -1,29 +1,9 @@
 import { createStore } from "redux";
-import { createSlice, configureStore } from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
 // configureStore is like createStore, but it merges multiple reducers into one reducer
 
-const initialState = { counter: 0, showCounter: true };
-
-const counterSlice = createSlice({
-  name: "counter",
-  initialState: initialState,
-  // every method automatically recieve the latest state
-  // createSlice creates unique action identifiers for different reducers
-  reducers: {
-    increment(state) {
-      state.counter++; // it seems mutating the state, but it doesn't!
-    },
-    decrement(state) {
-      state.counter--;
-    },
-    increment(state, action) {
-      state.counter = state.counter + action.amount;
-    },
-    toggleCounter(state) {
-      state.showCounter = !state.showCounter;
-    },
-  },
-});
+import counterReducer from "./counter";
+import authReducer from "./auth";
 
 /*
 // working with various states
@@ -68,7 +48,9 @@ const counterReducer = (state = initialState, action) => {
 
 // const store = createStore(counterSlice.reducer); // it passes reducer function
 const store = configureStore({
-  reducer: counterSlice.reducer,
+  reducer: { counter: counterReducer, auth: authReducer },
 }); // it passes a configuration object
+
+
 
 export default store;
