@@ -1,28 +1,26 @@
-import { useLoaderData, json } from "react-router-dom";
+import { useLoaderData, json, Await } from "react-router-dom";
 // a hook that can access the closest loader data
 
 import EventsList from "../components/EventsList";
+import { Suspense } from "react";
 
 function EventsPage() {
   // asyc and await will return a promise but React Router will check if a promise is returned
   // and get the resolved data from that promise
-  const data = useLoaderData();
+  const { events } = useLoaderData();
 
-  if (data.isError) {
-    return <p>{data.message}</p>;
-  }
-
-  const events = data.events;
-
-  return <EventsList events={events} />;
+  return (
+    <Suspense fallback={<p style={{ textAlign: "center" }}>Loading...</p>}>
+      <Await resolve={events}>
+        {(loadedEvents) => <EventsList events={loadedEvents} />}
+      </Await>
+    </Suspense>
+  );
 }
 
 export default EventsPage;
 
-// loader code will not execute on a server
-// this is all happening in the browser
-// even though it's not a component, it's still in the browser
-export async function loader() {
+async function loadEvents() {
   const response = await fetch("http://localhost:8080/events");
 
   if (!response.ok) {
@@ -38,6 +36,16 @@ export async function loader() {
     //  const resData = await response.json();
     // return resData.events; // react router will make this retured data available in this page
     // const res = new Response("any data", { status: 201 }); // built-in browser object
-    return response;
+    const resData = await response.json();
+    return resData.events;
   }
+}
+
+// loader code will not execute on a server
+// this is all happening in the browser
+// even though it's not a component, it's still in the browser
+export function loader() {
+  return {
+    events: loadEvents(), // holds a promise
+  };
 }
