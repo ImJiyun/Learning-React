@@ -6,6 +6,7 @@ const CartContext = createContext({
   items: [],
   addItem: (item) => {},
   removeItem: (id) => {},
+  clearCart: () => {},
 });
 
 // state and action parameters are provided by React
@@ -53,6 +54,10 @@ function cartReducer(state, action) {
       updatedItems[existingCartItemIndex] = updatedItem;
     }
 
+    if (action.type === "CLEAR_CART") {
+      return { ...state, items: [] };
+    }
+
     return { ...state, items: updatedItems };
   }
 
@@ -72,10 +77,15 @@ export function CartContextProvider({ children }) {
     dispatchCartAction({ type: "REMOVE_ITEM", id: id });
   }
 
+  function clearCart() {
+    dispatchCartAction({ type: "CLEAR_CART" });
+  }
+
   const cartContext = {
     items: cart.items,
     addItem: addItem,
     removeItem: removeItem,
+    clearCart: clearCart,
   };
 
   console.log(cartContext);
