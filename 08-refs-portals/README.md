@@ -1,10 +1,11 @@
+## Refs & Portal
 ### What is `ref` in React?
 
-- A **ref** is a special object that allows you to reference and interact with a DOM element or a React component directly.  
-- You can create a ref using the `useRef` hook, which is a built-in React hook. It must be called inside a functional component or a custom hook.
+- A **ref** is a special object that allows us to reference and interact with a DOM element or a React component directly.  
+- We can create a ref using the `useRef` hook, which is a built-in React hook. It must be called inside a functional component or a custom hook.
 - A ref value can be connected to a JSX element using the `ref` attribute. 
 - The `ref` object has a single property, **`current`**, which holds the reference to the connected DOM element or value.  
-- By using refs, you can directly access or manipulate the underlying DOM element without going through React’s state or props mechanism.
+- By using refs, we can directly access or manipulate the underlying DOM element without going through React’s state or props mechanism.
 
 ---
 
@@ -47,6 +48,7 @@ export default function Player() {
   );
 }
 ```
+- we need two states, one with onChange prop, one with onClick prop
 
 ### Example After Using `ref`
 ```jsx
@@ -88,15 +90,61 @@ export default function Player() {
    - After the element is rendered, `myRef.current` will refer to the DOM node.
 
 4. **Difference from State**:
-   - Updating a ref does not trigger a re-render, whereas updating state does.
+   - Updating a ref does not trigger a re-render, whereas state does.
 
 5. **When to Use `ref`**:
    - Use refs when direct interaction with a DOM element is required (e.g., accessing input values, managing focus).
    - Avoid overusing refs for managing application data or triggering rendering logic; React's state and props should handle that instead.
 
-React is a declarative code, not imperative code
-It's about not directly manipulating the DOM 
-So it's not recommended to manipulating the DOM by using ref
+```jsx
+import { useRef, useState } from "react";
+
+export default function TimerChallenge({ title, targetTime }) {
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
+
+  // ref can be used to manage the value
+  const timer = useRef();
+  // it will be component scoped, not re-rendered when the component re-renders
+  // the value is not lost when the component re-renders
+  // if we have a value that should be managed, but not reset, we can use ref
+
+  function handleStart() {
+    timer.current = setTimeout(() => {
+      setTimerExpired(true);
+    }, targetTime * 1000);
+    setTimerStarted(true);
+  }
+
+  function handleStop() {
+    // how can we access the timer that was set with setTimeout?
+    clearTimeout(timer.current);
+  }
+
+  return (
+    <section className="challenge">
+      <h2>{title}</h2>
+      {timerExpired && <p>You lost!</p>}
+      <p className="challenge-time">
+        {targetTime} second{targetTime > 1 ? "s" : ""}
+      </p>
+      <p>
+        <button onClick={timerStarted ? handleStop : handleStart}>
+          {timerStarted ? "Stop" : "Start"} Challenge
+        </button>
+      </p>
+      <p className={timerStarted ? "active" : undefined}>
+        {timerStarted ? "Time is running..." : "Timer inactive"}
+      </p>
+    </section>
+  );
+}
+
+```
+
+- React is a declarative code, not imperative code. 
+- It's about not directly manipulating the DOM. 
+- So it's not recommended to manipulating the DOM by using ref. <hr/>
 
 #### refs vs state
 - state
@@ -110,8 +158,6 @@ So it's not recommended to manipulating the DOM by using ref
 - refs can be used for managing any kind of value
 - ref will not be reset or cleared when this component re-executes
 - also doesn't cause component function to execute again
-
-Here's a revised version of your notes, ensuring clarity and conciseness:
 
 ---
 
@@ -139,7 +185,7 @@ A React Hook that allows customization of the instance value exposed when using 
 
 ---
 
-### Code Explanation:
+### Example:
 
 #### Parent Component (`TimerChallenge`)
 - Manages a timer and exposes a `ResultModal` component to show the result.
@@ -241,17 +287,38 @@ const ResultModal = forwardRef(function ResultModal({ result, targetTime }, ref)
 export default ResultModal;
 ```
 
+- Since React 19
+```jsx
+export default function ResultModal({ ref, result, targetTime }) {
+  return (
+    // the built-in dialog is invisible by default
+    <dialog ref={ref} className="result-modal">
+      {/* if we force the dialog to be visible by setting open to true, the buil-in backdrop will not be shown */}
+      {/* we need to open the dialog programmatically */}
+      <h2>You {result}</h2>
+      <p>
+        The target time was <strong>{targetTime} seconds.</strong>
+      </p>
+      <p>
+        You stopped the timer with <strong>X seconds left.</strong>
+      </p>
+      <form action="dialog">
+        {/* inside dialog, a form will close the dialog */}
+        <button>Close</button>
+      </form>
+    </dialog>
+  );
+}
+```
+
 --- 
 
 ### Portals
 
 **Definition**:  
-Portals in React allow you to render JSX into a different part of the DOM tree than its parent component. Normally, a React component is rendered within its parent DOM hierarchy, but with portals, you can "teleport" JSX to another DOM node.
+Portals in React allow us to render JSX into a different part of the DOM tree than its parent component. Normally, a React component is rendered within its parent DOM hierarchy, but with portals, we can "teleport" JSX to another DOM node.
 
 ---
-
-### Key Concepts:
-
 1. **How Portals Work**:
     
     - React still maintains the component's state and event bubbling, even if the rendered JSX is placed elsewhere in the DOM.
@@ -302,3 +369,51 @@ Portals in React allow you to render JSX into a different part of the DOM tree t
 3. **Advantages**:
     
     - Keeps modal-related code logically grouped within the `ResultModal` component while avoiding style and structural conflicts.
+
+```jsx
+import { forwardRef, useImperativeHandle, useRef } from "react";
+import { createPortal } from "react-dom";
+
+const ResultModal = forwardRef(function ResultModal(
+  { targetTime, remainingTime, onReset },
+  ref
+) {
+  const dialog = useRef();
+
+  const userLost = remainingTime <= 0;
+  const formattedRemainingTime = (remainingTime / 1000).toFixed(2);
+  const score = Math.round((1 - remainingTime / (targetTime * 1000)) * 100);
+
+  useImperativeHandle(ref, () => {
+    return {
+      open() {
+        dialog.current.showModal();
+      },
+    };
+  });
+
+  return createPortal(
+    // the built-in dialog is invisible by default
+    <dialog ref={dialog} className="result-modal">
+      {/* if we force the dialog to be visible by setting open to true, the buil-in backdrop will not be shown */}
+      {/* we need to open the dialog programmatically */}
+      {userLost && <h2>You lost</h2>}
+      {!userLost && <h2>Your score : {score}</h2>}
+      <p>
+        The target time was <strong>{targetTime} seconds.</strong>
+      </p>
+      <p>
+        You stopped the timer with{" "}
+        <strong>{formattedRemainingTime} seconds left.</strong>
+      </p>
+      <form action="dialog" onSubmit={onReset}>
+        {/* inside dialog, a form will close the dialog */}
+        <button>Close</button>
+      </form>
+    </dialog>,
+    document.getElementById("modal")
+  );
+});
+
+export default ResultModal;
+```
