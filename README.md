@@ -3,4 +3,5 @@ This is a repository for practicing React.js. The course is from [React - The Co
 [1. React Essentials](./03-react-essentials/README.md) - Basic concepts: Components, Props, JSX, State <br/>
 [2. React Essentials Deep Dive](./04-essential-deep-dive/README.md) - Beyond the basics : behind the scenes of JSX, structuring components and state, advanced state usage, patterns <br/>
 [3. Refs & Portal](./08-refs-portals/) - Refs & Portal <br/>
-[4. Advanced state management](./10-advanced-state-management/README.md) - Advanced State Management : Context API, useContext, useReducer
+[4. Advanced state management](./10-advanced-state-management/README.md) - Advanced State Management : Context API, useContext, useReducer <br/>
+[5. Handling Side Effects](./11-handling-side-effects/README.md) <br/>
