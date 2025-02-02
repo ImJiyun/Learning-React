@@ -22,7 +22,7 @@ function App() {
   const [modalIsOpen, setModalIsOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchPlaces(params) {
+    async function fetchPlaces() {
       setIsFetching(true);
       try {
         const places = await fetchUserPlaces();
