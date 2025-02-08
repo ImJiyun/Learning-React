@@ -1,30 +1,60 @@
-## React Router
+## Building a Multiple SPAs with React Router
 
-### 1. Defining Routes
-React Router provides tools to define path-to-component mappings. 
+### what is routing?
+
+In SPA, routing refers to the process of navigating between different pages without a full page reloads.
+
+#### SPA (Single Page Application)
+
+- a web application that loads a single HTML page and dynamically updates its content as the user interacts with it, fetching data from the server as needed.
+- Pros
+  - No full page reload: Uses AJAX to update only necessary components, improving speed and responsiveness.
+  - Better performance & UX: Provides a smooth user experience similar to a native app.
+  - Reduced server load: The backend does not need to generate a new HTML page for each request.
+  - Frontend-Backend decoupling: Enables a clear separation of concerns, making development more flexible.
+- Cons
+  - Slower initial load: The browser needs to load all necessary resources at once, which can increase the initial load time.
+  - SEO challenges: Since content is dynamically loaded, search engines may have difficulty indexing pages.
+  - Complex state management: Requires efficient client-side state handling, often using libraries like Vuex (Vue), Redux (React), or Pinia (Vue 3).
+
+#### MPA (Multi Page Application)
+
+- It is a web application that consists of multiple HTML pages, where each request loads a new page from the server
+- Pros
+
+  - Better SEO: Since each page is fully loaded from the server, search engines can easily index them.
+  - Simpler architecture: Easier to manage without requiring complex client-side state management.
+  - Faster initial load: Only the necessary page is loaded, rather than fetching all resources at once.
+
+- Cons:
+
+  - Slower navigation: Each page change requires a full reload, which can lead to longer load times.
+  - Higher server load: The backend needs to process and serve an entire HTML page for every request.
+  - Less interactive UX: The user experience may feel less fluid compared to an SPA.
+
+### Building routes
+
+#### 1. Define Routes
+
+- latest version : object based
 
 ```jsx
-import {
-  createBrowserRouter,
-  createRoutesFromElements,
-  Route,
-  RouterProvider,
-} from "react-router-dom";
+// https://example.com/products
+// https: protocol
+// example.com : domain name
+// products : path
 
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import HomePage from "./pages/Home";
 import ProductsPage from "./pages/Products";
 
-// Using `createRoutesFromElements` (older style)
-const routeDefinitions = createRoutesFromElements(
-  <Route>
-    <Route path="/" element={<HomePage />} />
-    <Route path="/products" element={<ProductsPage />} />
-  </Route>
-);
-
-// Using `createBrowserRouter` (latest style)
+// latest version
+// react router renders the element when the specific path is active
 const router = createBrowserRouter([
-  { path: "/", element: <HomePage /> },
+  {
+    path: "/",
+    element: <HomePage />,
+  },
   { path: "/products", element: <ProductsPage /> },
 ]);
 
@@ -35,15 +65,60 @@ function App() {
 export default App;
 ```
 
-#### Key Notes:
-- Routes define the structure of application's paths.
-- React Router allows flexibility between imperative (programmatic) and declarative route definitions.
-- `RouterProvider` connects the router instance to the app.
+- older version
 
----
+```jsx
+// https://example.com/products
+// https: protocol
+// example.com : domain name
+// products : path
 
-### 2. Navigating Pages with `Link`
-React Router replaces traditional `<a>` tags with `Link` to handle navigation without reloading the page.
+import {
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  RouterProvider,
+} from "react-router-dom";
+import HomePage from "./pages/Home";
+import ProductsPage from "./pages/Products";
+
+const routeDefinitions = createRoutesFromElements(
+  <Route>
+    <Route path="/" element={<HomePage />}></Route>
+    <Route path="/products" element={<ProductsPage />}></Route>
+  </Route>
+);
+
+const router = createBrowserRouter(routeDefinitions);
+
+function App() {
+  return <RouterProvider router={router} />;
+}
+
+export default App;
+```
+
+#### 2. Navigating between pages with links
+
+```jsx
+function HomePage() {
+  return (
+    <>
+      <h1>My Home Page</h1>
+      <p>
+        Go to <a href="/products">the list of products</a>
+      </p>
+    </>
+  );
+}
+export default HomePage;
+```
+
+- with `<a></a>`, the user will send a new request to the server
+- and the server will send back a HTML page, which loads all the JS code and restarts the application (it's not a necessary work)
+- `Link` prevents the action of sending a request and make the React loads the appropriate element for that URL.
+- It will also change the URL without sending a new request
+- NOTE: `Link` component renders a regular `a` element
 
 ```jsx
 import { Link } from "react-router-dom";
@@ -58,30 +133,68 @@ function HomePage() {
     </>
   );
 }
-
 export default HomePage;
 ```
 
-#### Key Notes:
-- `<Link>` prevents unnecessary HTTP requests, maintaining SPA behavior.
-- Unlike an `<a>` tag, a `Link` listens for clicks and updates the browser history programmatically.
-- Always use `Link` for internal navigation in React applications.
+### Layouts & Nested Routes
 
----
+For better user experience, we should make navigation bar
 
-### 3. Layouts & Nested Routes
-Layouts in React Router are achieved using nested routes and the `Outlet` component.
+```jsx
+import { Link } from "react-router-dom";
+
+function MainNavigation() {
+  return (
+    <header>
+      <nav>
+        <ul>
+          <li>
+            <Link to="/">Home</Link>
+          </li>
+          <li>
+            <Link to="/products">Products</Link>
+          </li>
+        </ul>
+      </nav>
+    </header>
+  );
+}
+
+export default MainNavigation;
+```
+
+- `MainNavigation` should be visible on all pages
+- The more pages we have, we have to add this `MainNavigation` in all pages
+- It's better to have a layout that wraps all routes
+
+```jsx
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootLayout />,
+    children: [
+      {
+        path: "/",
+        element: <HomePage />,
+      },
+      { path: "/products", element: <ProductsPage /> },
+    ],
+  },
+]);
+```
+
+- `RootLayout` acts as a wrapper and a parent routes to the children routes
+- In `RootLayout`, we have to tell where the children routes should be rendered to
 
 ```jsx
 import { Outlet } from "react-router-dom";
 import MainNavigation from "../components/MainNavigation";
-import classes from "./Root.module.css";
 
 function RootLayout() {
   return (
     <>
       <MainNavigation />
-      <main className={classes.content}>
+      <main>
         <Outlet />
       </main>
     </>
@@ -91,75 +204,59 @@ function RootLayout() {
 export default RootLayout;
 ```
 
-#### Key Notes:
-- **`Outlet`**: Acts as a placeholder for child route elements.
-- Nested routes enable building reusable layouts while keeping routes modular.
-- Example use case: shared navigation bars, sidebars, or footers.
+- `Outlet` marks the place where the child route elements should be rendered to
+- `MainNavigation` will be fixed, and content will be different for different URLs
+
+### Showing error pages with `errorElement`
+
+- Website users might visit URLs that don't exist
+- The react-router-dom package will generate an error, and the error will bubble up to root route definition
+- with help of `errorElement`, we can render the error page as a fallback page if an error occurs
+
+`ErrorPage.js`
 
 ```jsx
-import {
-  createBrowserRouter,
-  Route,
-  RouterProvider,
-} from "react-router-dom";
+import MainNavigation from "../components/MainNavigation";
 
-import HomePage from "./pages/Home";
-import ProductsPage from "./pages/Products";
-import RootLayout from "./pages/Root";
+function ErrorPage() {
+  return (
+    <>
+      <MainNavigation />
+      <main>
+        <h1>An error occured!</h1>
+        <p>Could not find this page!</p>
+      </main>
+    </>
+  );
+}
 
+export default ErrorPage;
+```
+
+- `App.jsx`
+
+```jsx
 const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
+    errorElement: <ErrorPage />,
     children: [
-      { path: "/", element: <HomePage /> },
+      {
+        path: "/",
+        element: <HomePage />,
+      },
       { path: "/products", element: <ProductsPage /> },
     ],
   },
 ]);
-
-function App() {
-  return <RouterProvider router={router} />;
-}
-
-export default App;
 ```
 
----
+### Working with `NavLink`
 
-### 4. Error Handling with `errorElement`
-React Router allows defining error pages for unexpected situations, such as undefined routes.
+- with `NavLink`, we can get a feedback when the current link is active
 
-```jsx
-import ErrorPage from "./pages/Error";
-
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <RootLayout />,
-    errorElement: <ErrorPage />, // Handle undefined paths or errors
-    children: [
-      { path: "/", element: <HomePage /> },
-      { path: "/products", element: <ProductsPage /> },
-    ],
-  },
-]);
-
-function App() {
-  return <RouterProvider router={router} />;
-}
-
-export default App;
-```
-
-#### Key Notes:
-- **`errorElement`**: Renders a fallback UI when the router encounters an error.
-- Useful for displaying custom 404 or server error pages.
-
----
-
-### 5. `NavLink` for Active Styling
-`NavLink` is a special version of `Link` that supports dynamic styling for active routes.
+`MainNavigation.jsx`
 
 ```jsx
 import { NavLink } from "react-router-dom";
@@ -173,7 +270,9 @@ function MainNavigation() {
           <li>
             <NavLink
               to="/"
-              className={({ isActive }) => (isActive ? classes.active : undefined)}
+              className={({ isActive }) =>
+                isActive ? classes.active : undefined
+              }
               end
             >
               Home
@@ -182,7 +281,9 @@ function MainNavigation() {
           <li>
             <NavLink
               to="/products"
-              className={({ isActive }) => (isActive ? classes.active : undefined)}
+              className={({ isActive }) =>
+                isActive ? classes.active : undefined
+              }
             >
               Products
             </NavLink>
@@ -196,22 +297,42 @@ function MainNavigation() {
 export default MainNavigation;
 ```
 
-#### Key Notes:
-- `className` in `NavLink` accepts a function that returns a CSS class based on `isActive`.
-- The `end` prop ensures the link matches only its exact path (avoiding partial matches for nested routes).
+`MainNavigation.module.css`
 
----
+```css
+/* note : NavLink renders a tag */
+.list a {
+  text-decoration: none;
+  color: var(--color-primary-400);
+}
 
-### 6. Programmatic Navigation
-React Router's `useNavigate` hook allows programmatic navigation.
+.list a:hover,
+.list a.active {
+  color: var(--color-primary-800);
+  text-decoration: underline;
+}
+```
+
+- It takes a special prop - `className`, which takes a function and that function whould return the class name
+- that function automatically receives an object, from which we can destrucutre `isActive`
+- `isActive` is true when that link is active
+- `end` prop means the link with it should only be considered active if the currently active route ends with this path.
+  - In this case, when we hit `'/'`, only this URL will be active, not `'/products'`
+
+### Navigating programtically
+
+- So far, we have implemented only UI-based navigation through main navigation bar.
+- when a form is submitted, or timer is expired, we might want to trigger a navigation action.
+
+`HomePage.js`
 
 ```jsx
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 function HomePage() {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // trigger a navigation
 
-  function navigateHandler() {
+  function navigationHandler() {
     navigate("/products");
   }
 
@@ -219,81 +340,64 @@ function HomePage() {
     <>
       <h1>My Home Page</h1>
       <p>
-        <button onClick={navigateHandler}>Navigate</button>
+        Go to <Link to="/products">the list of products</Link>
+      </p>
+      <p>
+        <button onClick={navigationHandler}>Navigate</button>
       </p>
     </>
   );
 }
-
 export default HomePage;
 ```
 
-#### Key Notes:
-- `useNavigate` is ideal for navigation triggered by events, such as button clicks or form submissions.
-- Prefer `Link` for static navigation in your UI.
+- `useNavigate` hook returns a function that we can change the current route.
 
----
+### Defining & Using Dynamic Routes
 
-### Dynamic Routes with React Router
+- We might want to load a page for different products
+- While loading the same component, the data that will be displayed in there will be different for the different products
+- And the path will be different
 
-Dynamic routes allow React Router to handle path segments that are not static, enabling pages to be rendered based on variable data (e.g., `:productId` in a route).
-
----
-
-### Setting Up Dynamic Routes
-
-1. **Route Definition**  
-Dynamic routes use `:` to define a path parameter, such as `:productId`. This parameter can be accessed in the component corresponding to the route.
+`App.jsx`
 
 ```jsx
-import {
-  createBrowserRouter,
-  Route,
-  RouterProvider,
-} from "react-router-dom";
-
-import HomePage from "./pages/Home";
-import ProductsPage from "./pages/Products";
-import RootLayout from "./pages/Root";
-import ErrorPage from "./pages/Error";
-import ProductDetailPage from "./pages/ProductDetail";
-
 const router = createBrowserRouter([
   {
     path: "/",
     element: <RootLayout />,
     errorElement: <ErrorPage />,
     children: [
-      { path: "/", element: <HomePage /> },
+      {
+        path: "/",
+        element: <HomePage />,
+      },
       { path: "/products", element: <ProductsPage /> },
-      // Dynamic Route
       { path: "/products/:productId", element: <ProductDetailPage /> },
     ],
   },
 ]);
-
-function App() {
-  return <RouterProvider router={router} />;
-}
-
-export default App;
 ```
 
----
+- `:` signals the React-router-dom that the path is dynamic
+- after `:`, any value can be used
 
-2. **Accessing Dynamic Parameters with `useParams`**  
-The `useParams` hook retrieves the dynamic path parameters defined in the route.
+`ProductDetailPage.js`
+
+- We want to know which `productId` was used in `ProductDetailPage`
+
+`ProductDetailPage.js`
 
 ```jsx
 import { useParams } from "react-router-dom";
 
 function ProductDetailPage() {
-  const params = useParams(); // Extracts `:productId` from the URL
-
+  const params = useParams(); // gives an object which we can destructure identifier in route definition
+  // the actual value used in the place of place holder
   return (
     <>
       <h1>Product Details</h1>
-      <p>Product ID: {params.productId}</p>
+      <p>{params.productId}</p>
     </>
   );
 }
@@ -301,14 +405,12 @@ function ProductDetailPage() {
 export default ProductDetailPage;
 ```
 
-- **How It Works:**  
-  When the URL matches `/products/:productId`, `useParams` provides an object containing the path variable.  
-  Example: Visiting `/products/p1` gives `{ productId: "p1" }`.
+- `useParams` returns an object from which we can get the actual value used in the placeholder in route definition
+- in this case, we define `productId` in `createBrowserRouter`, so we use `productId` to get the value
 
----
+### Adding Links for Dynamic Routes
 
-3. **Linking to Dynamic Routes**  
-Use `<Link>` components to navigate to a dynamic route. The `to` prop can include dynamic path variables.
+`ProductsPage.js`
 
 ```jsx
 import { Link } from "react-router-dom";
@@ -326,7 +428,6 @@ function ProductsPage() {
       <ul>
         {PRODUCTS.map((prod) => (
           <li key={prod.id}>
-            {/* Link to dynamic route */}
             <Link to={`/products/${prod.id}`}>{prod.title}</Link>
           </li>
         ))}
@@ -338,139 +439,106 @@ function ProductsPage() {
 export default ProductsPage;
 ```
 
-- **Explanation:**  
-  The `PRODUCTS` array simulates fetched data. Each item dynamically generates a link pointing to its corresponding detail page.
+### Relative & Absoulte Paths
 
----
+- If a path starts with '/', it means it is an absolute path
+- The other case, it means it is a relative path
 
-### Benefits of Dynamic Routes
-
-- **Flexibility**: Routes can adapt to dynamic data such as user IDs, product IDs, or categories.
-- **Scalability**: One dynamic route can handle multiple variations, reducing redundancy.
-- **Seamless Navigation**: Links and parameters are seamlessly integrated, ensuring a clean user experience.
-
----
-
-### Example Walkthrough
-
-1. User visits `/products`.
-2. `ProductsPage` renders a list of links using the `PRODUCTS` array.
-3. Clicking on a product's link navigates to `/products/:productId`.
-4. `ProductDetailPage` uses `useParams` to fetch and display the `productId`.
-
----
-### Path in React Router
-
-#### 1. **Absolute Path**
-- **Definition:**  
-  An absolute path begins with a `/` and is directly appended after the domain name.  
-  It always refers to the same specific route, regardless of the current active route.
-
-- **Usage Example:**
-
-  ```jsx
-  <Route path="/products" element={<ProductsPage />} />
-  ```
-  - When navigating to `/products`, the `ProductsPage` component is rendered.
-  - The absolute path does not depend on any parent route's path.
-
-- **Characteristics:**
-  - Starts with a `/`.
-  - Useful for top-level routes or when you want to ensure the path is globally consistent.
-
----
-
-#### 2. **Relative Path**
-- **Definition:**  
-  A relative path does not start with `/`. Instead, it is appended to the **currently active parent route's path**.  
-  Child routes automatically inherit the parent route's structure.
-
-- **Usage Example:**
-
-  ```jsx
-  <Route path="details" element={<ProductDetailPage />} />
-  ```
-  - If this route is nested under a parent route with a path `/products`, the resulting route becomes `/products/details`.
-
-- **Characteristics:**
-  - Does not start with `/`.
-  - The path is appended to the parent route’s path.
-  - Ideal for child routes where the context of the parent path is required.
-
----
-
-### **`relative` Prop in React Router**
-
-The `relative` prop can be used to control the behavior of relative paths in navigational components like `Link`, `NavLink`, or programmatic navigation using `useNavigate`.
-
-#### **Values:**
-- `"route"` (default):  
-  The relative path is resolved **based on the nearest route path**.  
-  This is the most commonly used mode for nested routing scenarios.
-  
-- `"path"`:  
-  The relative path is resolved **based on the current URL path**, not the nearest route.
-
----
-
-#### **Examples of `relative` Prop Usage**
-
-##### 1. **Default Behavior (`relative="route"`)**
+`App.jsx`
 
 ```jsx
-<Link to="details">Details</Link>
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootLayout />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        path: "",
+        element: <HomePage />,
+      },
+      { path: "products", element: <ProductsPage /> },
+      { path: "products/:productId", element: <ProductDetailPage /> },
+    ],
+  },
+]);
 ```
 
-- If the current route is `/products`, the resulting path will be `/products/details`.
-- The `relative` prop is `"route"` by default, so you don’t need to specify it explicitly in most cases.
+- In the above code, the children paths are relative paths
+- Those paths are appended after the path of the wrapper parent route
 
----
+  - If the parent path was `/root` and child path was `products`, we will visit `/root/products`
+  - If the child path was `/products`, we will visit `/products`
 
-##### 2. **Custom Behavior (`relative="path"`)**
-
-```jsx
-<Link to="details" relative="path">Details</Link>
-```
-
-- If the current URL is `/products/123`, the resulting path will be `/products/123/details`.
-- Useful for situations where navigation needs to consider the exact current URL, not just the route path.
-
----
-
-### Example Code with `relative`
+- NOTE : relative path is relative to the route definitions
+  - `products/:productId` is a child of root route and a sibling of `products`
+  - So when going up level, it goes to the root path
 
 ```jsx
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 function ProductDetailPage() {
-  const navigate = useNavigate();
-
+  const params = useParams(); // gives an object which we can destructure identifier in route definition
+  // the actual value used in the place of place holder
   return (
     <>
       <h1>Product Details</h1>
-      {/* Relative to the route */}
-      <Link to="reviews">View Reviews (Relative to Route)</Link>
-
-      {/* Relative to the current path */}
-      <Link to="reviews" relative="path">
-        View Reviews (Relative to Path)
-      </Link>
-
-      {/* Programmatic navigation with relative */}
-      <button onClick={() => navigate("reviews", { relative: "path" })}>
-        Navigate to Reviews
-      </button>
+      <p>{params.productId}</p>
+      <p>
+        <Link to="..">Back</Link>
+      </p>
     </>
   );
 }
+
+export default ProductDetailPage;
 ```
 
----
+- By setting the `relative` prop `path`, it will move to product page
+  - Because React Router will remove one segment from that path
+- By default, `relative` prop is set to be `route`
 
-### Key Differences Between `relative="route"` and `relative="path"`
+```jsx
+import { Link, useParams } from "react-router-dom";
 
-| **Aspect**             | **`relative="route"`**                       | **`relative="path"`**                       |
-|-------------------------|---------------------------------------------|---------------------------------------------|
-| **Default Behavior**    | Yes                                        | No (must be explicitly specified)           |
-| **Resolved Against**    | Nearest route path                         | Current URL path                            |
-| **Use Case**            | Nested routing                             | URL-specific navigation                     |
+function ProductDetailPage() {
+  const params = useParams(); // gives an object which we can destructure identifier in route definition
+  // the actual value used in the place of place holder
+  return (
+    <>
+      <h1>Product Details</h1>
+      <p>{params.productId}</p>
+      <p>
+        <Link to=".." relative="path">
+          Back
+        </Link>
+      </p>
+    </>
+  );
+}
+
+export default ProductDetailPage;
+```
+
+### Index Routes
+
+- When the parent route path and child's one are same, we can add `index` property and set it true
+- It means it's the default route that should be displayed if the parent route's path is active
+
+```jsx
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <RootLayout />,
+    errorElement: <ErrorPage />,
+    children: [
+      {
+        index: true,
+        element: <HomePage />,
+      },
+      { path: "products", element: <ProductsPage /> },
+      { path: "products/:productId", element: <ProductDetailPage /> },
+    ],
+  },
+]);
+```
