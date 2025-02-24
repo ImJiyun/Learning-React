@@ -266,3 +266,374 @@ export default function FindEventSection() {
   );
 }
 ```
+
+### Query Configuration Object & Aborting Requests
+
+- React Query passes Query Configuration Object to the `queryFn` in `useQuery`
+- This object contains properties like `signal`, which is used to abort ongoing requests when necessary
+
+```javascript
+export async function fetchEvents({ signal, searchTerm }) {
+  let url = "http://localhost:3000/events";
+
+  if (searchTerm) {
+    url += `?search=${searchTerm}`;
+  }
+
+  const response = await fetch(url, { signal: signal });
+
+  if (!response.ok) {
+    const error = new Error("An error occurred while fetching the events");
+    error.code = response.status;
+    error.info = await response.json();
+    throw error;
+  }
+
+  const { events } = await response.json();
+
+  return events;
+}
+```
+
+```jsx
+import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchEvents } from "../../util/http.js";
+import LoadingIndicator from "../UI/LoadingIndicator.jsx";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+import EventItem from "./EventItem.jsx";
+
+export default function FindEventSection() {
+  const searchElement = useRef();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // the query wants the event data that matches the search term
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["events", { search: searchTerm }],
+    queryFn: ({ signal }) => fetchEvents(signal, searchTerm),
+  });
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    setSearchTerm(searchElement.current.value);
+  }
+
+  let content = <p>Please enter a search term and to find events.</p>;
+
+  if (isPending) {
+    content = <LoadingIndicator />;
+  }
+
+  if (isError) {
+    content = (
+      <ErrorBlock
+        title="An error occured"
+        message={error.info?.message || "Failed to fetch events"}
+      />
+    );
+  }
+
+  if (data) {
+    content = (
+      <ul className="events-list">
+        {data.map((event) => (
+          <li key={event.id}>
+            <EventItem event={event} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="content-section" id="all-events-section">
+      <header>
+        <h2>Find your next event!</h2>
+        <form onSubmit={handleSubmit} id="search-form">
+          <input
+            type="search"
+            placeholder="Search events"
+            ref={searchElement}
+          />
+          <button>Search</button>
+        </form>
+      </header>
+      {content}
+    </section>
+  );
+}
+```
+
+### Enabled & Disabled Queries
+
+- We might want some requests not to be sent instantly
+- Set `enabled` property to be `false` not to send the request instantly
+
+```jsx
+import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchEvents } from "../../util/http.js";
+import LoadingIndicator from "../UI/LoadingIndicator.jsx";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+import EventItem from "./EventItem.jsx";
+
+export default function FindEventSection() {
+  const searchElement = useRef();
+  const [searchTerm, setSearchTerm] = useState();
+
+  // the query wants the event data that matches the search term
+  // react query treats isPending as true unless the query is enabled
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["events", { search: searchTerm }],
+    queryFn: ({ signal }) => fetchEvents(signal, searchTerm),
+    enabled: searchTerm !== undefined,
+  });
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    setSearchTerm(searchElement.current.value);
+  }
+
+  let content = <p>Please enter a search term and to find events.</p>;
+
+  if (isPending) {
+    content = <LoadingIndicator />;
+  }
+
+  if (isError) {
+    content = (
+      <ErrorBlock
+        title="An error occured"
+        message={error.info?.message || "Failed to fetch events"}
+      />
+    );
+  }
+
+  if (data) {
+    content = (
+      <ul className="events-list">
+        {data.map((event) => (
+          <li key={event.id}>
+            <EventItem event={event} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="content-section" id="all-events-section">
+      <header>
+        <h2>Find your next event!</h2>
+        <form onSubmit={handleSubmit} id="search-form">
+          <input
+            type="search"
+            placeholder="Search events"
+            ref={searchElement}
+          />
+          <button>Search</button>
+        </form>
+      </header>
+      {content}
+    </section>
+  );
+}
+```
+
+- If we don't enter `searchTerm`, the request will not be sent
+- The code above has a problem: react query treats `isPending` as `true` unless the query is enabled
+- the loading indicator is visible, but this is not what we want
+
+```jsx
+import { useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { fetchEvents } from "../../util/http.js";
+import LoadingIndicator from "../UI/LoadingIndicator.jsx";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+import EventItem from "./EventItem.jsx";
+
+export default function FindEventSection() {
+  const searchElement = useRef();
+  const [searchTerm, setSearchTerm] = useState();
+
+  // the query wants the event data that matches the search term
+  // react query treats isPending as true unless the query is enabled
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["events", { search: searchTerm }],
+    queryFn: ({ signal }) => fetchEvents(signal, searchTerm),
+    enabled: searchTerm !== undefined,
+  });
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    setSearchTerm(searchElement.current.value);
+  }
+
+  let content = <p>Please enter a search term and to find events.</p>;
+
+  if (isLoading) {
+    content = <LoadingIndicator />;
+  }
+
+  if (isError) {
+    content = (
+      <ErrorBlock
+        title="An error occured"
+        message={error.info?.message || "Failed to fetch events"}
+      />
+    );
+  }
+
+  if (data) {
+    content = (
+      <ul className="events-list">
+        {data.map((event) => (
+          <li key={event.id}>
+            <EventItem event={event} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  return (
+    <section className="content-section" id="all-events-section">
+      <header>
+        <h2>Find your next event!</h2>
+        <form onSubmit={handleSubmit} id="search-form">
+          <input
+            type="search"
+            placeholder="Search events"
+            ref={searchElement}
+          />
+          <button>Search</button>
+        </form>
+      </header>
+      {content}
+    </section>
+  );
+}
+```
+
+- `isLoading` will not be true when the query is just disabled
+
+### Changing data with Mutations
+
+- To send a POST request, use `useMutation`, as the hook is opitimzed
+- We can of course use `useQuery`, but with `useMutation`, **the requests are not send instantly when the component renders**, which is the default behavior of `useQuery`
+- It takes a configuration object wih properities like `mutiationFn`, `mutationKey`
+- `mutationKey` is not neccessary, POST requests are about modifying data, caching the response isn’t typical, unlike with useQuery.
+
+```jsx
+import { Link, useNavigate } from "react-router-dom";
+
+import Modal from "../UI/Modal.jsx";
+import EventForm from "./EventForm.jsx";
+import { useMutation } from "@tanstack/react-query";
+import { createNewEvent } from "../../util/http.js";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+
+export default function NewEvent() {
+  const navigate = useNavigate();
+
+  const { mutate, isPending, isError, error } = useMutation({
+    mutationFn: createNewEvent,
+  });
+
+  function handleSubmit(formData) {
+    mutate({ event: formData });
+  }
+
+  return (
+    <Modal onClose={() => navigate("../")}>
+      <EventForm onSubmit={handleSubmit}>
+        {isPending && "Submitting..."}
+        {!isPending && (
+          <>
+            <Link to="../" className="button-text">
+              Cancel
+            </Link>
+            <button type="submit" className="button">
+              Create
+            </button>
+          </>
+        )}
+      </EventForm>
+      {isError && (
+        <ErrorBlock
+          title="Failed to create event"
+          message={
+            error.info?.message ||
+            "Failed to create event. Please check your inputs and try again later"
+          }
+        />
+      )}
+    </Modal>
+  );
+}
+```
+
+- `useMutation` returns an object with properties like `mutate`
+- `mutate` is a function which we can call to send the request
+
+### Acting on Mutation Success & Invalidating Queries
+
+- the function in `onSuccess` will be executed once the mutation succeeds
+- It allows us to perform side effects, such as navigation, showing success messages, or triggering data refetches.
+- After the POST request, we want to refetch existing data to reflect the changes. (need to invalidate the queries)
+
+```jsx
+import { Link, useNavigate } from "react-router-dom";
+
+import Modal from "../UI/Modal.jsx";
+import EventForm from "./EventForm.jsx";
+import { useMutation } from "@tanstack/react-query";
+import { createNewEvent, queryClient } from "../../util/http.js";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+
+export default function NewEvent() {
+  const navigate = useNavigate();
+
+  const { mutate, isPending, isError, error } = useMutation({
+    mutationFn: createNewEvent,
+    onSuccess: () => {
+      // invalidate the events query to refetch the data
+      queryClient.invalidateQueries({ queryKey: ["events"] });
+      navigate("/events");
+    },
+  });
+
+  function handleSubmit(formData) {
+    mutate({ event: formData });
+  }
+
+  return (
+    <Modal onClose={() => navigate("../")}>
+      <EventForm onSubmit={handleSubmit}>
+        {isPending && "Submitting..."}
+        {!isPending && (
+          <>
+            <Link to="../" className="button-text">
+              Cancel
+            </Link>
+            <button type="submit" className="button">
+              Create
+            </button>
+          </>
+        )}
+      </EventForm>
+      {isError && (
+        <ErrorBlock
+          title="Failed to create event"
+          message={
+            error.info?.message ||
+            "Failed to create event. Please check your inputs and try again later"
+          }
+        />
+      )}
+    </Modal>
+  );
+}
+```
+
+- `queryClient.invalidateQueries `marks specific queries as "stale", prompting React Query to refetch them the next time they are accessed.
