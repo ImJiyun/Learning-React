@@ -637,3 +637,273 @@ export default function NewEvent() {
 ```
 
 - `queryClient.invalidateQueries `marks specific queries as "stale", prompting React Query to refetch them the next time they are accessed.
+
+### Disabling automatic refetching after invalidation
+
+- `invalidateQueries` by default, marks queries as stale and immediately refeches them if the component using the query is mounted
+- By setting `refetchType` as `none`, no automatic refetching happens
+
+```jsx
+import { Link, Outlet, useNavigate, useParams } from "react-router-dom";
+
+import Header from "../Header.jsx";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { deleteEvent, fetchEvent, queryClient } from "../../util/http.js";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+
+export default function EventDetails() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const { mutate } = useMutation({
+    mutationFn: deleteEvent,
+    // when the mutation function succeeds
+    onSuccess: () => {
+      // the data is changed on the backend, so we need to invalidate the queries
+      queryClient.invalidateQueries({
+        queryKey: ["events"],
+        // this query will not automatically triggered immediately
+        refetchType: "none",
+      });
+      navigate("/events");
+    },
+  });
+
+  const handleDelete = () => {
+    mutate({ id: id });
+  };
+
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["events", { id: id }],
+    queryFn: ({ signal }) => fetchEvent({ id, signal }),
+  });
+
+  let content;
+
+  if (isPending) {
+    content = (
+      <div id="event-details-content" className="center">
+        <p>Fetching event data....</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    content = (
+      <div id="event-details-content" className="center">
+        <ErrorBlock
+          title="Failed to load event"
+          message={
+            error.info?.message ||
+            "Failed to fetch event data, please try again later"
+          }
+        />
+      </div>
+    );
+  }
+
+  if (data) {
+    const formattedDate = new Date(data.date).toLocaleDateString("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    content = (
+      <>
+        <header>
+          <h1>{data.title}</h1>
+          <nav>
+            <button onClick={handleDelete}>Delete</button>
+            <Link to="edit">Edit</Link>
+          </nav>
+        </header>
+        <div id="event-details-content">
+          <img src={`http://localhost:3000/${data.image}`} alt={data.title} />
+          <div id="event-details-info">
+            <div>
+              <p id="event-details-location">{data.location}</p>
+              <time dateTime={`Todo-DateT$Todo-Time`}>
+                {formattedDate} @ {data.time}
+              </time>
+            </div>
+            <p id="event-details-description">{data.description}</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Outlet />
+      <Header>
+        <Link to="/events" className="nav-item">
+          View all Events
+        </Link>
+      </Header>
+      <article id="event-details">{content}</article>
+    </>
+  );
+}
+```
+
+### Optmistic Updating
+
+- We want to update the UI immediately after sending POST requests
+- One way of acheiving this goal is to call `queryClient.invalidateQueries()`
+- The other way is Optmistic Updating, which can update the UI without waiting for the response from the backend
+- If the request failed, we should roll back the optimistic update
+
+`EditEvent.jsx`
+
+```jsx
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+import Modal from "../UI/Modal.jsx";
+import EventForm from "./EventForm.jsx";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { fetchEvent, queryClient, updateEvent } from "../../util/http.js";
+import LoadingIndicator from "../UI/LoadingIndicator.jsx";
+import ErrorBlock from "../UI/ErrorBlock.jsx";
+
+export default function EditEvent() {
+  const navigate = useNavigate();
+  const { id } = useParams();
+
+  const { data, isPending, isError, error } = useQuery({
+    queryKey: ["events", id],
+    queryFn: ({ signal }) => fetchEvent({ signal, id: id }),
+  });
+
+  const { mutate } = useMutation({
+    mutationFn: updateEvent,
+    // React query passes a data which we passed to mutate
+    onMutate: (data) => {
+      // 1st arg: key of the query we want to change
+      // 2nd arg: the new data we want to store
+      const newEvent = data.event;
+      queryClient.setQueryData(["events", id], newEvent); // manipulate the stored data without waiting for a response
+    },
+  });
+
+  function handleSubmit(formData) {
+    mutate({ id, event: formData });
+    navigate("../"); // go up one level, go the page the user is comming from
+  }
+
+  function handleClose() {
+    navigate("../");
+  }
+
+  let content;
+
+  if (isPending) {
+    content = (
+      <div className="center">
+        <LoadingIndicator />
+      </div>
+    );
+  }
+
+  if (isError) {
+    content = (
+      <>
+        <ErrorBlock
+          title="Failed to load event"
+          message={
+            error.info?.message ||
+            "Failed to load event. Please check your inputs and try again later"
+          }
+        />
+        <div className="form-actions">
+          <Link to="../" className="button">
+            Okay
+          </Link>
+        </div>
+      </>
+    );
+  }
+
+  if (data) {
+    content = (
+      <EventForm inputData={data} onSubmit={handleSubmit}>
+        <Link to="../" className="button-text">
+          Cancel
+        </Link>
+        <button type="submit" className="button">
+          Update
+        </button>
+      </EventForm>
+    );
+  }
+  return <Modal onClose={handleClose}>{content}</Modal>;
+}
+```
+
+- With `onMutate` property, the function will be executed right when we call `mutate`
+- `clientQuery` will change the cached data (already stored data) with `setQueryData` method
+
+`EditEvent.jsx`
+
+```jsx
+const { mutate } = useMutation({
+  mutationFn: updateEvent,
+  // React query passes a data which we passed to mutate
+  onMutate: async (data) => {
+    const newEvent = data.event;
+    // cancel ongoing queries
+    await queryClient.cancelQueries({ queryKey: ["events", id] });
+    // key of the query we want to change
+    // the new data we want to store
+    queryClient.setQueryData(["events", id], newEvent); // manipulate the stored data without waiting for a response
+  },
+});
+```
+
+- `cancelQueries` cancels the ongoing queries
+
+- Handling the error from mutation
+
+`EditEvent.jsx`
+
+```jsx
+const { mutate } = useMutation({
+  mutationFn: updateEvent,
+  // React query passes a data which we passed to mutate
+  onMutate: async (data) => {
+    const newEvent = data.event;
+    // cancel ongoing queries
+    await queryClient.cancelQueries({ queryKey: ["events", id] });
+    // to rolll back, we need the currently stored data
+    const previousEvent = queryClient.getQueryData(["events", id]);
+    // 1st arg : key of the query we want to change
+    // 2nd arg : the new data we want to store
+    queryClient.setQueryData(["events", id], newEvent); // manipulate the stored data without waiting for a response
+    return { previousEvent };
+  },
+  // if the mutation gets the error, onError will be executed
+  // these objects are passed in automatically by React Query
+  // context object can contain the returned value
+  onError: (error, data, context) => {
+    queryClient.setQueryData(["events", id], context.previousEvent);
+  },
+  // whenever the mutation finishes,
+  onSettled: () => {
+    queryClient.invalidateQueries(["events", id]); // fetch the latest data from the backend
+  },
+});
+
+function handleSubmit(formData) {
+  mutate({ id: id, event: formData });
+  navigate("../"); // go up one level, go the page the user is comming from
+}
+```
+
+- We might want rollback the previous data after getting an error
+- with `queryClient.getQueryData(["events", id])`, we can get the currently stored data
+- `onError`
+  - triggered if the mutation fails.
+  - rolls back the UI to the previous state using the cached data
+- `onSettled`
+  - runs after the mutation either succeeds or fails
+  - ensures the data is up-to-date by invalidating the query
