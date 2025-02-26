@@ -10,11 +10,11 @@ export default function NewEventsSection() {
   // useQuery returns an object with data, isPending, and isError properties
   const { data, isPending, isError, error } = useQuery({
     // queryKey : the key that will be used to cache the data
-    queryKey: ["events"],
+    queryKey: ["events", { max: 3 }],
     // queryFn : the code that will send the request and return the data
-    queryFn: fetchEvents,
+    queryFn: ({ signal, queryKey }) => fetchEvents({ signal, ...queryKey[1] }),
     staleTime: 5000,
-    gcTime: 30000,
+    // gcTime: 30000,
   }); // sends HTTP request to fetch events and returns the data, loading state, and error state
 
   let content;

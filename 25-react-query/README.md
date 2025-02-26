@@ -907,3 +907,20 @@ function handleSubmit(formData) {
 - `onSettled`
   - runs after the mutation either succeeds or fails
   - ensures the data is up-to-date by invalidating the query
+
+### Using the query key as query function input
+
+```jsx
+const { data, isPending, isError, error } = useQuery({
+  // queryKey : the key that will be used to cache the data
+  queryKey: ["events", { max: 3 }],
+  // queryFn : the code that will send the request and return the data
+  queryFn: ({ signal, queryKey }) => fetchEvents({ signal, ...queryKey[1] }),
+  staleTime: 5000,
+  // gcTime: 30000,
+});
+```
+
+- `queryKey[1]` extracts `{ max: 3 }` and passes it to `fetchEvents`
+
+
