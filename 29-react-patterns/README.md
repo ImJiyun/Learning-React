@@ -521,3 +521,351 @@ function App() {
 
 export default App;
 ```
+
+### Render props
+
+- Passing a function a value for the children prop
+- That function must return something renderable
+- WHEN to use:
+
+  - The component should handle logic, not rendering
+  - Different data types need to be rendered in different ways
+  - We want to make the component reusable and flexiable
+
+- It can be used on different kinds of data
+- It cares on containing search logic, not on controlling how the items should be rendered
+
+#### The current problem with `SearchableList`
+
+```jsx
+import { useState } from "react";
+
+function SearchableList({ items }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // convert all items to strings and filter them based on the search term
+  const searchResults = items.filter((item) =>
+    JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function handleChange(event) {
+    setSearchTerm(event.target.value);
+  }
+
+  return (
+    <div className="searchable-list">
+      <input type="search" placeholder="Search" onChange={handleChange} />
+      <ul>
+        {searchResults.map((item, index) => (
+          <li key={index}>{item.toString()}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default SearchableList;
+```
+
+- Not great at outputting the results and dealing with all kinds of data
+- For string data, we want to output data using `toString()`
+- For object, we want to output a more complex markup
+
+- That's where `render` prop can help us
+- It deals with the rendering logic
+
+### Implementing a Search Functionality with render props
+
+- The updated `SearchableList` component now accepts a children prop, which is a function that determines how each search result is rendered.
+
+- The component is no longer responsible for rendering the items.
+- Instead, the parent component decides how to display search results.
+- The `children` prop is called with each item in the filtered search results, providing full control over rendering.
+
+```jsx
+import { useState } from "react";
+
+function SearchableList({ items, children }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // convert all items to strings and filter them based on the search term
+  const searchResults = items.filter((item) =>
+    JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function handleChange(event) {
+    setSearchTerm(event.target.value);
+  }
+
+  return (
+    <div className="searchable-list">
+      <input type="search" placeholder="Search" onChange={handleChange} />
+      <ul>
+        {searchResults.map((item, index) => (
+          <li key={index}>{children(item)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default SearchableList;
+```
+
+```jsx
+import Accordion from "./components/Accordion/Accordion";
+
+import savannaImg from "./assets/african-savanna.jpg";
+import amazonImg from "./assets/amazon-river.jpg";
+import caribbeanImg from "./assets/caribbean-beach.jpg";
+import desertImg from "./assets/desert-dunes.jpg";
+import forestImg from "./assets/forest-waterfall.jpg";
+import SearchableList from "./components/SearchableList/SearchableList";
+import Place from "./Place";
+
+const PLACES = [
+  {
+    id: "african-savanna",
+    image: savannaImg,
+    title: "African Savanna",
+    description: "Experience the beauty of nature.",
+  },
+  {
+    id: "amazon-river",
+    image: amazonImg,
+    title: "Amazon River",
+    description: "Get to know the largest river in the world.",
+  },
+  {
+    id: "caribbean-beach",
+    image: caribbeanImg,
+    title: "Caribbean Beach",
+    description: "Enjoy the sun and the beach.",
+  },
+  {
+    id: "desert-dunes",
+    image: desertImg,
+    title: "Desert Dunes",
+    description: "Discover the desert life.",
+  },
+  {
+    id: "forest-waterfall",
+    image: forestImg,
+    title: "Forest Waterfall",
+    description: "Listen to the sound of the water.",
+  },
+];
+
+function App() {
+  return (
+    <main>
+      ...
+      <section>
+        <SearchableList items={PLACES}>
+          {(item) => <Place item={item} />}
+        </SearchableList>
+        <SearchableList items={["item 1", "item 2"]}>
+          {(item) => item}
+        </SearchableList>
+      </section>
+    </main>
+  );
+}
+
+export default App;
+```
+
+### Handling Keys Dynamically
+
+- Using `index` as `key` is not a great way as it's not directly linked to the data
+- `item.id` is also not a great `key` as not all item is object type
+- We need to convert items based on the type of item data
+
+#### `SearchableList.jsx`
+
+```jsx
+import { useState } from "react";
+
+function SearchableList({ items, itemKeyFn, children }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // convert all items to strings and filter them based on the search term
+  const searchResults = items.filter((item) =>
+    JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function handleChange(event) {
+    setSearchTerm(event.target.value);
+  }
+
+  return (
+    <div className="searchable-list">
+      <input type="search" placeholder="Search" onChange={handleChange} />
+      <ul>
+        {searchResults.map((item) => (
+          <li key={itemKeyFn(item)}>{children(item)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default SearchableList;
+```
+
+- `itemKeyFn` : dynamically generate a key for a specific item
+
+#### `App.jsx`
+
+```jsx
+import Accordion from "./components/Accordion/Accordion";
+
+import savannaImg from "./assets/african-savanna.jpg";
+import amazonImg from "./assets/amazon-river.jpg";
+import caribbeanImg from "./assets/caribbean-beach.jpg";
+import desertImg from "./assets/desert-dunes.jpg";
+import forestImg from "./assets/forest-waterfall.jpg";
+import SearchableList from "./components/SearchableList/SearchableList";
+import Place from "./Place";
+
+const PLACES = [
+  {
+    id: "african-savanna",
+    image: savannaImg,
+    title: "African Savanna",
+    description: "Experience the beauty of nature.",
+  },
+  {
+    id: "amazon-river",
+    image: amazonImg,
+    title: "Amazon River",
+    description: "Get to know the largest river in the world.",
+  },
+  {
+    id: "caribbean-beach",
+    image: caribbeanImg,
+    title: "Caribbean Beach",
+    description: "Enjoy the sun and the beach.",
+  },
+  {
+    id: "desert-dunes",
+    image: desertImg,
+    title: "Desert Dunes",
+    description: "Discover the desert life.",
+  },
+  {
+    id: "forest-waterfall",
+    image: forestImg,
+    title: "Forest Waterfall",
+    description: "Listen to the sound of the water.",
+  },
+];
+
+function App() {
+  return (
+    <main>
+      ...
+      <section>
+        <SearchableList items={PLACES} itemKeyFn={(item) => item.id}>
+          {(item) => <Place item={item} />}
+        </SearchableList>
+        <SearchableList items={["item 1", "item 2"]} itemKeyFn={(item) => item}>
+          {(item) => item}
+        </SearchableList>
+      </section>
+    </main>
+  );
+}
+
+export default App;
+```
+
+- For object type, the component passes a function that returns `item.id`
+- For string type, it passes a function that returns `item`
+
+### Working with Debouncing
+
+- a programming technique used to limit the rate at which a function is executed
+- It prevents a function being rendered too frequently, which can lead to performance issues
+
+#### Example
+
+```jsx
+import { useState } from "react";
+
+function SearchableList({ items, itemKeyFn, children }) {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // convert all items to strings and filter them based on the search term
+  const searchResults = items.filter((item) =>
+    JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function handleChange(event) {
+    setSearchTerm(event.target.value);
+  }
+
+  return (
+    <div className="searchable-list">
+      <input type="search" placeholder="Search" onChange={handleChange} />
+      <ul>
+        {searchResults.map((item) => (
+          <li key={itemKeyFn(item)}>{children(item)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default SearchableList;
+```
+
+- On every keystroke, handleChange function gets triggered, leading to the component being rendered again
+- We want to update the state if the user stopped typing for a couple of milliseconds
+
+```jsx
+import { useRef, useState } from "react";
+
+function SearchableList({ items, itemKeyFn, children }) {
+  const lastChange = useRef();
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // convert all items to strings and filter them based on the search term
+  const searchResults = items.filter((item) =>
+    JSON.stringify(item).toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  function handleChange(event) {
+    // if there is an onging timer, clear it, and start a new one
+    if (lastChange.current) {
+      clearTimeout(lastChange.current);
+    }
+    // debounce the search term to avoid searching on every key press
+    // delay the search term update by 500ms
+
+    // store tiemer id in ref to clear it on every key press
+    lastChange.current = setTimeout(() => {
+      lastChange.current = null;
+      setSearchTerm(event.target.value);
+    }, 500);
+  }
+
+  return (
+    <div className="searchable-list">
+      <input type="search" placeholder="Search" onChange={handleChange} />
+      <ul>
+        {searchResults.map((item) => (
+          <li key={itemKeyFn(item)}>{children(item)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default SearchableList;
+```
+
+- In `handleChange`,
+  - Clears any existing timeout (prevents executing multiple delayed updates)
+  - Starts a new timer (setTimeout) to delay updating searchTerm by 500ms
+  - After 500ms of no typing, the search term is updated, triggering a re-render
