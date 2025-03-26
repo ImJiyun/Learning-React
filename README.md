@@ -5,6 +5,7 @@ This is a repository for practicing React.js. The course is from [React - The Co
 [3. Refs & Portal](./08-refs-portals/) - Refs & Portal <br/>
 [4. Advanced state management](./10-advanced-state-management/README.md) - Advanced State Management : Context API, useContext, useReducer <br/>
 [5. Handling Side Effects](./11-handling-side-effects/README.md) - Handling side effects, useEffect, useCallback hook <br/>
+[6. Behind The Scene](./13-behind-the-scenes/README.md) - How React works behind the scene & Performance <br/>
 [7. Sending HTTP requests](./15-data-fetching/README.md) - Sending and fetching data from backend <br/>
 [React Router Basics](./22-react-router/README.md) <br/>
 [React Router Advanced](./22-react-router-advanced/) <br/>
