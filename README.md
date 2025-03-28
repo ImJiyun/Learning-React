@@ -9,5 +9,6 @@ This is a repository for practicing React.js. The course is from [React - The Co
 [7. Sending HTTP requests](./15-data-fetching/README.md) - Sending and fetching data from backend <br/>
 [React Router Basics](./22-react-router/README.md) <br/>
 [React Router Advanced](./22-react-router-advanced/) <br/>
+[Tanstack Query](./25-react-query/README.md) <br/>
 [React Patterns](./29-react-patterns/README.md) - Compound components, Render props, Debouncing <br/>
 [React with TypeScript](./32-react-typescript/) <br/>
