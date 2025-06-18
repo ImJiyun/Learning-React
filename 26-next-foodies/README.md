@@ -504,3 +504,250 @@ export default function MealsPage() {
 
 - While `Meals` is still loading, the fallback UI (`<p>Fetching meals...</p>`) will be shown
 - Once data is fetched, the real `MealsGrid` is rendered
+
+### `error.js`
+
+- a custom error component
+- It should be a **client component** to run on the client side to handle client-side rendering errors
+
+```js
+"use client";
+
+export default function Error({ error }) {
+  return (
+    <main className="error">
+      <h1>An error occurred!</h1>
+      <p>Failed to fetch meal data. Please try again later.</p>
+    </main>
+  );
+}
+```
+
+- Next.js automatically passes the `error` object, which has additional information on error
+
+### `not-found.js`
+
+- a file that will be shown when a page or resource is not found
+- In a Next.js application using the App Router, this file is used whenever the `notFound()` function is explicitly called in your code, or when a route is requested that does not exist
+
+```js
+export default function NotFound() {
+  return (
+    <main className="not-found">
+      <h1>Meal Not Found</h1>
+      <p>Unfortunately, we could not find the requested page or meal data.</p>
+    </main>
+  );
+}
+```
+
+### Dynamic Route and Data Handling
+
+```js
+import Image from "next/image";
+import classes from "./page.module.css";
+import { getMeal } from "@/lib/meals";
+import { notFound } from "next/navigation";
+
+// localhost:3000/meals/dfsa
+// every component in page.js receives a params object
+// params object contains an object with the dynamic segments of the URL
+// key is the name of file, the value is the actual url segment
+export default async function MealDetailsPage({ params }) {
+  const { mealSlug } = await params;
+
+  const meal = getMeal(mealSlug);
+
+  if (!meal) {
+    notFound();
+    // This will stop the execution of the function and show the closest 404 page
+  }
+
+  meal.instructions = meal.instructions.replace(/\n/g, "<br />");
+
+  return (
+    <>
+      <header className={classes.header}>
+        <div className={classes.image}>
+          <Image src={meal.image} alt={meal.title} fill />
+        </div>
+        <div className={classes.headerText}>
+          <h1>{meal.title}</h1>
+          <p className={classes.creator}>
+            by <a href={`mailto:${meal.creator_email}`}>{meal.creator}</a>
+          </p>
+          <p className={classes.summary}>{meal.summary}</p>
+        </div>
+      </header>
+      <main>
+        {/* if we're not validating it, cross-site scripting attacks would take occur */}
+        <p
+          className={classes.instructions}
+          dangerouslySetInnerHTML={{ __html: meal.instructions }}
+        ></p>
+      </main>
+    </>
+  );
+}
+```
+
+- This file handles the dynamic routing for individual meals based on a slug in the URL
+- The page receives a `params` object that includes the URL segment corresponding to the dynamic route
+
+### Image Picker Input Component
+
+```js
+"use client";
+import { useRef } from "react";
+import classes from "./image-picker.module.css";
+
+export default function ImagePicker({ label, name }) {
+  const imageInput = useRef();
+
+  function handlePickClick() {
+    // imageInput.current returns the actual DOM element
+    imageInput.current.click(); // trigger the file input click event
+    // This will open the file picker dialog when the button is clicked
+  }
+
+  return (
+    <div className={classes.picker}>
+      <label htmlFor={name}>{label}</label>
+      <div className={classes.controls}>
+        <input
+          className={classes.input}
+          type="file"
+          id={name}
+          accept="image/png, image/jpeg"
+          name={name}
+          ref={imageInput}
+        />
+        {/* by default, button has type='submit' */}
+        <button
+          className={classes.button}
+          type="button"
+          onClick={handlePickClick}
+        >
+          Pick an Image
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+### Show Image Preview
+
+```js
+"use client";
+import { useRef, useState } from "react";
+import classes from "./image-picker.module.css";
+import Image from "next/image";
+
+export default function ImagePicker({ label, name }) {
+  const [pickedImage, setPickedImage] = useState();
+  const imageInput = useRef();
+
+  function handlePickClick() {
+    // imageInput.current returns the actual DOM element
+    imageInput.current.click(); // trigger the file input click event
+    // This will open the file picker dialog when the button is clicked
+  }
+
+  function handleImageChange(event) {
+    const file = event.target.files[0];
+
+    if (!file) {
+      setPickedImage(null);
+      return;
+    }
+
+    const fileReader = new FileReader();
+    fileReader.onload = () => {
+      setPickedImage(fileReader.result);
+    };
+
+    fileReader.readAsDataURL(file);
+  }
+
+  return (
+    <div className={classes.picker}>
+      <label htmlFor={name}>{label}</label>
+      <div className={classes.controls}>
+        <div className={classes.preview}>
+          {!pickedImage && <p>No image picked yet.</p>}
+          {pickedImage && (
+            <Image
+              src={pickedImage}
+              alt="The image selected by the user."
+              fill
+            />
+          )}
+        </div>
+        <input
+          className={classes.input}
+          type="file"
+          id={name}
+          accept="image/png, image/jpeg"
+          name={name}
+          ref={imageInput}
+          onChange={handleImageChange}
+          required
+        />
+        {/* by default, button has type='submit' */}
+        <button
+          className={classes.button}
+          type="button"
+          onClick={handlePickClick}
+        >
+          Pick an Image
+        </button>
+      </div>
+    </div>
+  );
+}
+```
+
+```js
+function handleImageChange(event) {
+```
+
+`handleImageChange` will be called when the user selects a file (from an `<input type="file" />`).
+
+```js
+const file = event.target.files[0]; // files is a FileList (not an array)
+```
+
+This gets the first file that the user selected from the file input element.
+
+```js
+if (!file) {
+  setPickedImage(null);
+  return;
+}
+```
+
+If no file was selected, this clears the previously picked image by setting it to `null` and then exits the function early.
+
+```js
+const fileReader = new FileReader();
+```
+
+This creates a new `FileReader` object. It is used to read the contents of the file in a way that JavaScript can use.
+
+```js
+fileReader.onload = () => {
+  setPickedImage(fileReader.result);
+};
+```
+
+This sets a function to run when the file has been successfully read.
+Once reading is complete, the result (a base64-encoded string) is stored using `setPickedImage`.
+
+```js
+fileReader.readAsDataURL(file);
+```
+
+This starts reading the file as a **Data URL** (a base64 string).
+When it's done, the `onload` function defined above will be called.
+Since `readAsDataURL` is asynchronous, the `fileReader.onload` handler must be set before calling it, so the browser knows what to do once the file has finished loading
