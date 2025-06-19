@@ -751,3 +751,217 @@ fileReader.readAsDataURL(file);
 This starts reading the file as a **Data URL** (a base64 string).
 When it's done, the `onload` function defined above will be called.
 Since `readAsDataURL` is asynchronous, the `fileReader.onload` handler must be set before calling it, so the browser knows what to do once the file has finished loading
+
+### Server Actions
+
+- Server Actions are a feature in Next.js to define functions that run directly on the server
+- They are mainly used by assigning them to the `action` prop of a `<form>` element
+- Normally, the `action` prop is used to specify a URL, but with Server Actions, we can directly assign a function
+- Behind the scenes, Next.js sends a request to the server when the form is submitted
+- The Server Action function is then executed **on the server**, not on the client
+- As a best practice, it's recommended to keep Server Action functions in a separate file from JSX components
+
+```js
+"use server";
+import { redirect } from "next/navigation";
+import { saveMeal } from "./meals";
+
+// This defines a Server Action
+
+export async function shareMeal(formData) {
+  // Automatically receives formData from the form submission
+  // Components are server components by default,
+  // and to define a Server Action, you must add 'use server' at the top of the file or function.
+
+  const meal = {
+    title: formData.get("title"),
+    summary: formData.get("summary"),
+    instructions: formData.get("instructions"),
+    image: formData.get("image"),
+    creator: formData.get("name"),
+    creator_email: formData.get("email"),
+  };
+
+  console.log(meal);
+
+  // Store the meal in the database
+  await saveMeal(meal);
+
+  // Redirect the user to the meals page after submission
+  redirect("/meals");
+}
+```
+
+```js
+import classes from "./page.module.css";
+import ImagePicker from "@/components/meals/image-picker";
+import { shareMeal } from "@/lib/actions";
+import MealsFormSubmit from "@/components/meals/meals-form-submit";
+
+export default function ShareMealPage() {
+  return (
+    <>
+      <header className={classes.header}>
+        <h1>
+          Share your <span className={classes.highlight}>favorite meal</span>
+        </h1>
+        <p>Or any other meal you feel needs sharing!</p>
+      </header>
+      <main className={classes.main}>
+        <form className={classes.form} action={shareMeal}>
+          <div className={classes.row}>
+            <p>
+              <label htmlFor="name">Your name</label>
+              <input type="text" id="name" name="name" required />
+            </p>
+            <p>
+              <label htmlFor="email">Your email</label>
+              <input type="email" id="email" name="email" required />
+            </p>
+          </div>
+          <p>
+            <label htmlFor="title">Title</label>
+            <input type="text" id="title" name="title" required />
+          </p>
+          <p>
+            <label htmlFor="summary">Short Summary</label>
+            <input type="text" id="summary" name="summary" required />
+          </p>
+          <p>
+            <label htmlFor="instructions">Instructions</label>
+            <textarea
+              id="instructions"
+              name="instructions"
+              rows="10"
+              required
+            ></textarea>
+          </p>
+          <ImagePicker label="Your image" name="image" />
+          <p className={classes.actions}>
+            <MealsFormSubmit />
+          </p>
+        </form>
+      </main>
+    </>
+  );
+}
+```
+
+### Save Image
+
+- Images should be stored in file system, not database
+  - Storing images directly in a database can lead to **large database sizes and performance issues**
+  - Databases are optimized for structured data, not binary files like images
+  - It's more efficient to save images in the file system and store **only the file path** in the database
+- Use the `public` folder for user-uploaded image storage
+  - In many web frameworks, the `public` folder is used to serve static files
+  - Any files stored here can be accessed by clients through URLs
+  - This makes it easy to display uploaded images without needing extra server-side logic to serve them.
+- But it also has disadvantages
+  - Everything in the public folder is accessible to anyone via a direct link
+  - Sensitive or private images should not be stored here
+
+#### Example
+
+```js
+export async function saveMeal(meal) {
+```
+
+- Exports an asynchronous function `saveMeal`, which takes a `meal` object as input
+
+```js
+meal.slug = slugify(meal.title, { lower: true });
+```
+
+- Creates a slug from the meal title (e.g., `"Chicken Curry"` → `"chicken-curry"`) and stores it in the `meal.slug` field
+
+```js
+meal.instructions = xss(meal.instructions);
+```
+
+- Sanitizes the `instructions` field to remove potentially malicious HTML or scripts
+
+```js
+const extenstion = meal.image.name.split(".").pop();
+```
+
+- Extracts the file extension from the uploaded image’s filename
+
+```js
+const fileName = `${meal.slug}.${extenstion}`;
+```
+
+- Combines the slug and file extension to create a new image filename (e.g., `chicken-curry.jpg`)
+
+```js
+const stream = fs.createWriteStream(`public/images/${fileName}`);
+```
+
+- `fs` is Node.js's built-in `fs` module, which allows reading from and writing to the file system
+- Creates a write stream to save the image to the `public/images/` directory
+
+```js
+const bufferedImage = await meal.image.arrayBuffer();
+```
+
+- Reads the uploaded image as an `ArrayBuffer`. This is how browser-uploaded files are handled in memory.
+
+```js
+stream.write(
+  Buffer.from(bufferedImage, (error) => {
+    if (error) {
+      throw new Error("Saving image failed");
+    }
+  })
+);
+```
+
+- Converts the `ArrayBuffer` into a Node.js `Buffer` and writes it to the file
+
+```js
+meal.image = `/images/${fileName}`; // the path shouldn't include public/
+```
+
+- Updates the `meal.image` field with the public-facing image path (excluding the `public/` folder, which is automatically served as root in many frameworks)
+
+```js
+db.prepare(
+  `
+    INSERT INTO meals 
+      (title, summary, instructions, creator, creator_email, image, slug)
+    VALUES (@title, @summary, @instructions, @creator, @creator_email, @image, @slug)  
+    `
+).run(meal);
+```
+
+- Executes a parameterized SQL query to insert the meal into the database
+- Using `.prepare(...).run(meal)` protects against SQL injection by binding the object values safely
+
+### Managing Form Submission Status with `useFormStatus`
+
+When using Server Actions, we may want to give users feedback while the form is being submitted (e.g., disabling the submit button or showing a loading state). Next.js provides a hook called `useFormStatus` for this purpose.
+
+- `useFormStatus` **must be used inside a Client Component**
+- It provides a `pending` boolean that indicates whether the form submission is in progress
+- To avoid making the entire form a Client Component, it's best to isolate the submit button in its own file
+
+```js
+"use client";
+import { useFormStatus } from "react-dom";
+
+// Client component for the submit button
+export default function MealsFormSubmit() {
+  const { pending } = useFormStatus();
+
+  return (
+    <button disabled={pending}>
+      {pending ? "Submitting..." : "Share Meal"}
+    </button>
+  );
+}
+```
+
+#### Notes:
+
+- This allows the rest of the form to remain a Server Component
+- Only the button component needs to be client-side, improving performance and maintaining server-rendering benefits elsewhere
