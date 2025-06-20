@@ -965,3 +965,266 @@ export default function MealsFormSubmit() {
 
 - This allows the rest of the form to remain a Server Component
 - Only the button component needs to be client-side, improving performance and maintaining server-rendering benefits elsewhere
+
+## Form validatation
+
+- We should validate form data on the backend
+- Throwing an error would be one way to handle invalid input
+
+```js
+"use server";
+import { redirect } from "next/navigation";
+import { saveMeal } from "./meals";
+
+function isInvalidText(text) {
+  return !text || text.trim() === "";
+}
+
+export async function shareMeal(formData) {
+  // automatically recieve formData
+  // Components, by default, are server component
+  // to make function running on server, put 'use server'
+  const meal = {
+    title: formData.get("title"),
+    summary: formData.get("summary"),
+    instructions: formData.get("instructions"),
+    image: formData.get("image"),
+    creator: formData.get("name"),
+    creator_email: formData.get("email"),
+  };
+
+  if (
+    isInvalidText(meal.title) ||
+    isInvalidText(meal.summary) ||
+    isInvalidText(meal.instructions) ||
+    isInvalidText(meal.creator) ||
+    isInvalidText(meal.creator_email) ||
+    !meal.creator_email.includes("@") ||
+    !meal.image ||
+    meal.image.size === 0
+  ) {
+    throw new Error("Invalid input - all fields are required!");
+  }
+
+  // store database
+  await saveMeal(meal);
+  redirect("/meals");
+}
+```
+
+- It would not be user-friendly, it can't hold the form data
+
+#### `React.useActionState`
+
+`useActionState` is a **React 19** hook that helps manage the **state of form submissions**, especially when using **Server Actions**
+
+It allows server functions (e.g., validation logic or database operation) to return a result which is then **stored in React state** — no need to manually manage it.
+
+#### Basic Usage
+
+```js
+const [state, formAction] = React.useActionState(actionFn, initialState);
+```
+
+- `state`: Holds the result returned by the action function (e.g., error messages, success text).
+- `formAction`: This function is passed to `<form action={formAction}>` to handle submissions.
+- There's also a third `isPending` value (currently experimental) that tracks submission status.
+
+#### Parameters
+
+```tsx
+React.useActionState(
+  actionFn: (prevState: State, formData: FormData) => Promise<State>,
+  initialState: State
+)
+```
+
+| Parameter      | Description                            |
+| -------------- | -------------------------------------- |
+| `actionFn`     | Async function (often a server action) |
+| `initialState` | The initial state for the form         |
+
+> The `actionFn` will receive:
+>
+> 1. the previous state
+> 2. the `FormData` object from the form submission
+
+#### 1. Server Action
+
+```ts
+// app/actions.ts
+"use server";
+
+export async function submitForm(prevState: any, formData: FormData) {
+  const name = formData.get("name")?.toString();
+
+  if (!name) {
+    return { message: "Name is required." };
+  }
+
+  return { message: `Hello, ${name}!` };
+}
+```
+
+#### 2. Client Component
+
+```tsx
+"use client";
+import React from "react";
+import { submitForm } from "./actions";
+
+export default function Page() {
+  const [state, formAction] = React.useActionState(submitForm, { message: "" });
+
+  return (
+    <form action={formAction}>
+      <input name="name" placeholder="Enter your name" />
+      <button type="submit">Submit</button>
+      <p>{state.message}</p>
+    </form>
+  );
+}
+```
+
+#### Notes
+
+- Requires **React 19 or later**
+- `useActionState` must be used **inside a client component** (`'use client'`)
+- Works best with the **App Router and Server Actions** in Next.js
+
+#### When Use It?
+
+- want to handle **form submissions without manually managing state**
+- need **server-side validation or processing**, and want to return results (e.g., error messages)
+- want to keep a **declarative and progressive** form structure, but still get the full power of server interactions
+
+## Caching System in Next.js
+
+- Next.js has an **aggressive caching system** to improve performance
+- It **pre-generates pages during the build process** (SSG - Static Site Generation)
+- This allows users to see the page **instantly**, without having to wait for server-side processing
+- However, **cached pages are not re-fetched automatically**, which can cause problems when the underlying data changes
+
+To solve that, we can use `revalidatePath()` to **manually trigger cache revalidation**
+
+### Example
+
+```ts
+"use server";
+
+import { redirect } from "next/navigation";
+import { saveMeal } from "./meals";
+import { revalidatePath } from "next/cache";
+
+function isInvalidText(text: FormDataEntryValue | null): boolean {
+  return !text || text.toString().trim() === "";
+}
+
+export async function shareMeal(prevState: any, formData: FormData) {
+  const meal = {
+    title: formData.get("title"),
+    summary: formData.get("summary"),
+    instructions: formData.get("instructions"),
+    image: formData.get("image"),
+    creator: formData.get("name"),
+    creator_email: formData.get("email"),
+  };
+
+  if (
+    isInvalidText(meal.title) ||
+    isInvalidText(meal.summary) ||
+    isInvalidText(meal.instructions) ||
+    isInvalidText(meal.creator) ||
+    isInvalidText(meal.creator_email) ||
+    !meal.creator_email.toString().includes("@") ||
+    !meal.image ||
+    (meal.image as File).size === 0
+  ) {
+    return {
+      message: "Invalid input",
+    };
+  }
+
+  // 1. Save the meal to the database
+  await saveMeal(meal);
+
+  // 2. Revalidate the `/meals` path so that the new data shows up immediately
+  revalidatePath("/meals"); // Revalidates cache for this path
+
+  // 3. Redirect the user to the updated page
+  redirect("/meals");
+}
+```
+
+### `revalidatePath(path, type?)`
+
+- `path`: The URL path to revalidate (e.g., `/meals`)
+- `type` (optional): Can be `"page"` (default) or `"layout"` if the route uses a layout and we want to revalidate shared data
+
+---
+
+## Do NOT Store Uploaded Files Locally
+
+- Storing uploaded files **on the local filesystem is not recommended** in Next.js apps
+- This is because Next.js app might run on **serverless environments** (like Vercel or AWS Lambda) where filesystems are **temporary or read-only**
+- Instead, use **cloud storage solutions** (like AWS S3, Cloudinary, Firebase Storage, etc.) to persist and serve uploaded files reliably
+
+## Adding Metadata in Next.js
+
+Next.js supports a powerful **metadata API** to help improve SEO and accessibility by setting the `<title>`, `<meta>`, and other head tags for each page.
+
+It automatically looks for metadata definitions in your page files and uses them during rendering.
+
+### Static Metadata
+
+We can define static metadata by exporting a `metadata` object directly in a page file.
+
+```tsx
+// app/meals/page.tsx
+
+export const metadata = {
+  title: "All Meals",
+  description: "Browse the delicious meals shared by our vibrant community",
+};
+```
+
+#### How it works:
+
+- Next.js will insert this metadata into the `<head>` of the rendered HTML
+- This works well for pages where metadata doesn’t depend on dynamic data
+
+### Dynamic Metadata
+
+If we need metadata that depends on dynamic content (like page params or database content), use the `generateMetadata` function
+
+```tsx
+// app/meals/[mealSlug]/page.tsx
+import { getMeal } from "@/lib/meals"; // hypothetical function
+import { notFound } from "next/navigation";
+
+export async function generateMetadata({ params }) {
+  const meal = await getMeal(params.mealSlug);
+
+  if (!meal) {
+    notFound(); // Triggers 404 page
+  }
+
+  return {
+    title: meal.title,
+    description: meal.summary,
+  };
+}
+```
+
+#### How it works:
+
+- `generateMetadata()` is a **server-side async function**
+- It receives `params`, `searchParams`, and more if needed
+- Ideal for **dynamic routes**, such as `/meals/:slug`
+- Because `generateMetadata()` runs before the page is rendered, we need to check if the data exists. Otherwise, it may lead to an error or generate incorrect metadata
+
+### Notes
+
+- We can also customize other metadata fields like `keywords`, `robots`, `themeColor`, and Open Graph / Twitter tags
+- Metadata is composable across layouts and nested routes
+- Use it to build dynamic titles, summaries, and shareable previews

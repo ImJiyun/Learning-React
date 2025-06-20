@@ -4,6 +4,11 @@ import MealsGrid from "../../components/meals/meals-grid";
 import { getMeals } from "@/lib/meals";
 import { Suspense } from "react";
 
+export const metadata = {
+  title: "All Meals",
+  description: "Browse the delicious meals shared by our vibrant community",
+};
+
 // we can use async keyword with server components
 // Meals component fetches data from the server
 // Outsourcing the data fetching to a separate function
